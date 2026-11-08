@@ -1,0 +1,41 @@
+name: Windows 10 RDP
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+    - name: Download Ngrok
+      run: |
+        Invoke-WebRequest https://equinox.io -OutFile ngrok.zip
+        Expand-Archive ngrok.zip
+
+    - name: Authenticate Ngrok
+      run: |
+        .\ngrok\ngrok.exe authtoken $env:NGROK_AUTH_TOKEN
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Enable RDP
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    - name: Start Ngrok Tunnel
+      run: |
+        Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+        Start-Sleep -Seconds 10
+
+    - name: Get Connection Details
+      run: |
+        $response = Invoke-RestMethod -Uri "http://127.0.0"
+        $url = $response.tunnels[0].public_url
+        Write-Host "=========================================="
+        Write-Host "رابط الاتصال (IP): $url"
+        Write-Host "اسم المستخدم: administrator"
+        Write-Host "كلمة المرور الافتراضية للويندوز هي كلمة مرور حسابك في جيت هاب أو ابحث عنها في تفاصيل النظام"
+        Write-Host "=========================================="
+        while ($true) { Start-Sleep -Seconds 60 }
